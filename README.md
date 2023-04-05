@@ -1,4 +1,4 @@
-## rchan: Redis List Channel
+## 🌸 rchan: Redis List Channel
 
 > Send data via Go channels through Redis List
 
