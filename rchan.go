@@ -28,7 +28,7 @@ func NewRedisListChannel[T string | []byte](r *redis.Client, key string, size ui
 					m, err := r.LPop(ctx, key).Bytes()
 					if len(m) == 0 || err != nil {
 						if err != nil && !errors.Is(err, redis.Nil) {
-							log.Printf("receive error: %s\n", err)
+							log.Printf("receive message(%v) error: %s\n", m, err)
 						}
 						has = false
 						continue
@@ -44,7 +44,7 @@ func NewRedisListChannel[T string | []byte](r *redis.Client, key string, size ui
 				pipe.RPush(ctx, key, m)
 				pipe.LTrim(ctx, key, 0, int64(size))
 				if _, err := pipe.Exec(ctx); err != nil {
-					log.Printf("send error: %s\n", err)
+					log.Printf("send message(%v) error: %s\n", m, err)
 				}
 			}
 		}
