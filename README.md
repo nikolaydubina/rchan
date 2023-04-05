@@ -1,5 +1,7 @@
 ## 🌸 rchan: Go channel thorugh Redis List
 
+[![Go Report Card](https://goreportcard.com/badge/github.com/nikolaydubina/rchan)](https://goreportcard.com/report/github.com/nikolaydubina/rchan)
+
 * 50 LOC
 * integration test
 
