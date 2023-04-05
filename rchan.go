@@ -10,11 +10,11 @@ import (
 )
 
 // NewRedisListChannel passes data between input and output channels through Redis list.
-// Always reads values from the Redis and fills out the read channel buffer.
-// When sending fills out out channel buffer.
-// If process is restarted or value is not read, then values are lost.
-// If nothing to read, then blocks by timer for poll duration.
-// Beyond size messages are dropped.
+// Fills out input buffer channel on poll interval.
+// Output is buffered too.
+// When goroutine is terminated, then output buffered messages are lost.
+// Beyond queue size messages are dropped.
+// No retries.
 func NewRedisListChannel[T string | []byte](r *redis.Client, key string, size uint, buff int, poll time.Duration) (<-chan T, chan<- T) {
 	out, in := make(chan T, buff), make(chan T, buff)
 
