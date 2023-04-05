@@ -1,6 +1,7 @@
-## 🌸 rchan: Redis List Channel
+## 🌸 rchan: Go channel thorugh Redis List
 
-> Send data via Go channels through Redis List
+* 50 LOC
+* integration test
 
 ```go
 rdb := redis.NewClient(&redis.Options{
