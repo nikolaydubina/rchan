@@ -12,7 +12,7 @@ in, out := rchan.NewRedisListChannel[string](rdb, "my-queue", 10000, 10, time.Mi
 
 out <- "hello world 🌏🤍✨"
 
-// ... 🗺️ ⏳ ...
+// ... 🗺️ ...
 
 fmt.Println(<-in)
 // Output: hello world 🌏🤍✨
