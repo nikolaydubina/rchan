@@ -10,7 +10,7 @@ import (
 )
 
 // NewRedisListChannel passes data between input and output channels through Redis list.
-// Buffers send and received messages.
+// Buffers sent and received messages.
 // Beyond queue size messages are dropped.
 // No retries.
 // To terminate, close write channel which will send whatever is buffered to send and send back whatever buffered to read.
