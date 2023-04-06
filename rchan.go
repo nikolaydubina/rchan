@@ -13,10 +13,10 @@ import (
 // Buffers to-sent and to-read messages.
 // Beyond queue size messages are dropped.
 // No retries.
-// To terminate, close the write channel, 
+// To terminate, close the write channel,
 // this will terminate threads and will send to Redis everything buffered, both to-read and to-send.
-func NewRedisListChannel[T string | []byte](rdb *redis.Client, key string, size uint, buff int, poll time.Duration) (<-chan T, chan<- T) {
-	r, w, stop := make(chan T, buff), make(chan T, buff), make(chan bool, 1)
+func NewRedisListChannel[T string | []byte](rdb *redis.Client, key string, size uint, buff int, batch int, poll time.Duration) (<-chan T, chan<- T) {
+	r, w, wi, stop := make(chan T, buff), make(chan T, buff), make(chan T, buff), make(chan bool, 1)
 
 	go func() {
 		t := time.NewTicker(poll)
@@ -37,9 +37,7 @@ func NewRedisListChannel[T string | []byte](rdb *redis.Client, key string, size 
 				close(r)
 				t.Stop()
 				for m := range r {
-					if err := send(context.Background(), rdb, key, size, m); err != nil {
-						log.Printf("send message(%v) error: %s\n", m, err)
-					}
+					wi <- m
 				}
 				return
 			}
@@ -47,8 +45,17 @@ func NewRedisListChannel[T string | []byte](rdb *redis.Client, key string, size 
 	}()
 
 	go func() {
+		for m := range wi {
+			if err := send(context.Background(), rdb, key, size, nil, m); err != nil {
+				log.Printf("send message(%v) error: %s\n", m, err)
+			}
+		}
+	}()
+
+	go func() {
+		ms := make([]T, 0, batch)
 		for m := range w {
-			if err := send(context.Background(), rdb, key, size, m); err != nil {
+			if err := send(context.Background(), rdb, key, size, wi, m); err != nil {
 				log.Printf("send message(%v) error: %s\n", m, err)
 			}
 		}
@@ -58,10 +65,19 @@ func NewRedisListChannel[T string | []byte](rdb *redis.Client, key string, size 
 	return r, w
 }
 
-func send[T string | []byte](ctx context.Context, rdb *redis.Client, key string, size uint, m T) error {
+func send[T string | []byte](ctx context.Context, rdb *redis.Client, key string, size uint, w chan<- T, ms ...T) error {
 	tx := rdb.TxPipeline()
-	tx.RPush(ctx, key, m)
+	for _, m := range ms {
+		tx.RPush(ctx, key, m)
+	}
 	tx.LTrim(ctx, key, 0, int64(size))
-	_, err := tx.Exec(ctx)
+	rs, err := tx.Exec(ctx)
+	if err != nil && w != nil {
+		for i, r := range rs {
+			if r.Err() != nil {
+				w <- ms[i]
+			}
+		}
+	}
 	return err
 }
