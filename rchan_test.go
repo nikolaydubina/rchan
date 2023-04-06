@@ -16,13 +16,13 @@ func Example_simple() {
 		Addr: os.Getenv("REDIS_HOST") + ":" + os.Getenv("REDIS_PORT"),
 	})
 
-	in, out := rchan.NewRedisListChannel[string](rdb, "my-queue", 10000, 10, time.Millisecond*100)
+	r, w := rchan.NewRedisListChannel[string](rdb, "my-queue", 10000, 10, time.Millisecond*100)
 
-	out <- "hello world 🌏🤍✨"
+	w <- "hello world 🌏🤍✨"
 
 	// ... 🗺️ ⏳ ...
 
-	fmt.Println(<-in)
+	fmt.Println(<-r)
 	// Output: hello world 🌏🤍✨
 }
 
