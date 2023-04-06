@@ -10,46 +10,57 @@ import (
 )
 
 // NewRedisListChannel passes data between input and output channels through Redis list.
-// Fills out input buffer channel on poll interval.
-// Output is buffered too.
-// When goroutine is terminated, then output buffered messages are lost.
+// Buffers send and received messages.
 // Beyond queue size messages are dropped.
 // No retries.
-// To terminate, close write channel.
+// To terminate, close write channel which will send whatever is buffered to send and send back whatever buffered to read.
 func NewRedisListChannel[T string | []byte](rdb *redis.Client, key string, size uint, buff int, poll time.Duration) (<-chan T, chan<- T) {
-	r, w := make(chan T, buff), make(chan T, buff)
+	r, w, stop := make(chan T, buff), make(chan T, buff), make(chan bool, 1)
 
 	go func() {
-		ctx := context.Background()
 		t := time.NewTicker(poll)
 		for {
 			select {
 			case <-t.C:
 				for has := true; has; {
-					m, err := rdb.LPop(ctx, key).Bytes()
-					if len(m) == 0 || err != nil {
-						if err != nil && !errors.Is(err, redis.Nil) {
+					m, err := rdb.LPop(context.Background(), key).Bytes()
+					if has = len(m) > 0 && err == nil; !has {
+						if !errors.Is(err, redis.Nil) {
 							log.Printf("receive message(%v) error: %s\n", m, err)
 						}
-						has = false
 						continue
 					}
 					r <- T(m)
 				}
-			case m, ok := <-w:
-				if !ok {
-					close(r)
-					return
+			case <-stop:
+				close(r)
+				t.Stop()
+				for m := range r {
+					if err := send(context.Background(), rdb, key, size, m); err != nil {
+						log.Printf("send message(%v) error: %s\n", m, err)
+					}
 				}
-				tx := rdb.TxPipeline()
-				tx.RPush(ctx, key, m)
-				tx.LTrim(ctx, key, 0, int64(size))
-				if _, err := tx.Exec(ctx); err != nil {
-					log.Printf("send message(%v) error: %s\n", m, err)
-				}
+				return
 			}
 		}
 	}()
 
+	go func() {
+		for m := range w {
+			if err := send(context.Background(), rdb, key, size, m); err != nil {
+				log.Printf("send message(%v) error: %s\n", m, err)
+			}
+		}
+		stop <- true
+	}()
+
 	return r, w
+}
+
+func send[T string | []byte](ctx context.Context, rdb *redis.Client, key string, size uint, m T) error {
+	tx := rdb.TxPipeline()
+	tx.RPush(ctx, key, m)
+	tx.LTrim(ctx, key, 0, int64(size))
+	_, err := tx.Exec(ctx)
+	return err
 }

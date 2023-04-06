@@ -30,8 +30,8 @@ REDIS_HOST=localhost REDIS_PORT=6379 go test -bench=. -benchmem .
 goos: darwin
 goarch: arm64
 pkg: github.com/nikolaydubina/rchan
-BenchmarkSendReceive_string-10             20949             52242 ns/op            1043 B/op         35 allocs/op
-BenchmarkSendReceive_bytes-10              25119             55099 ns/op            1073 B/op         36 allocs/op
+BenchmarkSendReceive_string-10             36172             32564 ns/op            1067 B/op         36 allocs/op
+BenchmarkSendReceive_bytes-10              30868             33741 ns/op            1067 B/op         36 allocs/op
 PASS
-ok      github.com/nikolaydubina/rchan  4.831s
+ok      github.com/nikolaydubina/rchan  5.625s
 ```
