@@ -1,6 +1,7 @@
 ## 🌸 rchan: Go channel thorugh Redis List
 
 [![Go Report Card](https://goreportcard.com/badge/github.com/nikolaydubina/rchan)](https://goreportcard.com/report/github.com/nikolaydubina/rchan)
+[![Go Reference](https://pkg.go.dev/badge/github.com/nikolaydubina/rchan.svg)](https://pkg.go.dev/github.com/nikolaydubina/rchan)
 
 * 30 LOC
 * integration test
@@ -10,13 +11,13 @@ rdb := redis.NewClient(&redis.Options{
     Addr: os.Getenv("REDIS_HOST") + ":" + os.Getenv("REDIS_PORT"),
 })
 
-in, out := rchan.NewRedisListChannel[string](rdb, "my-queue", 10000, 10, time.Millisecond*100)
+r, w := rchan.NewRedisListChannel[string](rdb, "my-queue", 10000, 10, time.Millisecond*100)
 
-out <- "hello world 🌏🤍✨"
+w<- "hello world 🌏🤍✨"
 
-// ... 🗺️ ...
+// ...
 
-fmt.Println(<-in)
+fmt.Println(<-r)
 // Output: hello world 🌏🤍✨
 ```
 
