@@ -7,13 +7,11 @@
 * integration test
 
 ```go
-rdb := redis.NewClient(&redis.Options{
-    Addr: os.Getenv("REDIS_HOST") + ":" + os.Getenv("REDIS_PORT"),
-})
+rdb := redis.NewClient(&redis.Options{Addr: "localhost:6379"})
 
 r, w := rchan.NewRedisListChannel[string](rdb, "my-queue", 10000, 10, time.Millisecond*100)
 
-w<- "hello world 🌏🤍✨"
+w <- "hello world 🌏🤍✨"
 
 // ...
 
