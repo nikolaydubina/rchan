@@ -4,6 +4,7 @@
 [![Go Reference](https://pkg.go.dev/badge/github.com/nikolaydubina/rchan.svg)](https://pkg.go.dev/github.com/nikolaydubina/rchan)
 
 * 30 LOC
+* 20K RPS
 * integration test
 
 ```go
