@@ -9,11 +9,12 @@ import (
 	"github.com/redis/go-redis/v9"
 )
 
-// NewRedisListChannel passes data between input and output channels through Redis list.
-// Buffers sent and received messages.
+// NewRedisListChannel passes data between input and output channels through Redis List.
+// Buffers to-sent and to-read messages.
 // Beyond queue size messages are dropped.
 // No retries.
-// To terminate, close write channel which will send whatever is buffered to send and send back whatever buffered to read.
+// To terminate, close the write channel, 
+// this will terminate threads and will send to Redis everything buffered, both to-read and to-send.
 func NewRedisListChannel[T string | []byte](rdb *redis.Client, key string, size uint, buff int, poll time.Duration) (<-chan T, chan<- T) {
 	r, w, stop := make(chan T, buff), make(chan T, buff), make(chan bool, 1)
 
