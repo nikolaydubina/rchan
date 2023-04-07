@@ -6,6 +6,7 @@
 * 40 LOC
 * 30 _thousand_ RPS (send individual message)
 * 1.4 _million_ RPS (send batch pipeline)
+* graceful stop (no messages lost, unless error)
 * integration test
 
 ```go
@@ -31,18 +32,18 @@ REDIS_HOST=localhost REDIS_PORT=6379 go test -bench=. -benchmem .
 goos: darwin
 goarch: arm64
 pkg: github.com/nikolaydubina/rchan
-BenchmarkSendReceive_string-10    34434    33475 ns/op     9.003 receive_B/op     0.2565 receive_MB/s     100.0 received_messages/%   1074 B/op   36 allocs/op
-BenchmarkSendReceive_bytes-10     28256    35437 ns/op     9.003 receive_B/op     0.2423 receive_MB/s     100.0 received_messages/%   1070 B/op   35 allocs/op
-BenchmarkBatchSendReceive/batch_string_10-10     321546     4285 ns/op     9.283 receive_B/op     2.06 receive_MB/s   103.1 received_messages/% 364 B/op 10 allocs/op
-BenchmarkBatchSendReceive/batch_bytes__10-10     321908     4360 ns/op     9.590 receive_B/op     2.09 receive_MB/s   106.6 received_messages/% 390 B/op 11 allocs/op
-BenchmarkBatchSendReceive/batch_string_100-10   1000000     1136 ns/op     8.831 receive_B/op     7.41 receive_MB/s    98.1 received_messages/% 283 B/op  7 allocs/op
-BenchmarkBatchSendReceive/batch_bytes__100-10   1000000     1133 ns/op     9.663 receive_B/op     8.13 receive_MB/s   107.4 received_messages/% 312 B/op  8 allocs/op
-BenchmarkBatchSendReceive/batch_string_1000-10  1734121      712 ns/op     9.472 receive_B/op    12.68 receive_MB/s   105.2 received_messages/% 285 B/op  7 allocs/op
-BenchmarkBatchSendReceive/batch_bytes__1000-10  1643700      723 ns/op     9.002 receive_B/op    11.87 receive_MB/s   100.0 received_messages/% 308 B/op  8 allocs/op
-BenchmarkBatchSendReceive/batch_string_10000-10 1629415      692 ns/op     9.003 receive_B/op    12.40 receive_MB/s   100.0 received_messages/% 301 B/op  7 allocs/op
-BenchmarkBatchSendReceive/batch_bytes__10000-10 1647858      724 ns/op     8.793 receive_B/op    11.57 receive_MB/s    97.7 received_messages/% 324 B/op  7 allocs/op
+BenchmarkSendReceive_string-10 29498 34788 ns/op   100.0 receive/%  9.003 receive_B/op  0.2468 receive_MB/s  1068 B/op   36 allocs/op
+BenchmarkSendReceive_bytes-10  30074 34886 ns/op   100.0 receive/%  9.003 receive_B/op  0.2461 receive_MB/s  1060 B/op   35 allocs/op
+BenchmarkBatchSendReceive/batch_string_10-10     334543  4325 ns/op   100.0 receive+queue/%  100.0 receive/%  9.000 receive_B/op  1.98 receive_MB/s  361 B/op 10 allocs/op
+BenchmarkBatchSendReceive/batch_bytes__10-10     330771  4344 ns/op   100.0 receive+queue/%  100.0 receive/%  9.000 receive_B/op  1.97 receive_MB/s  385 B/op 11 allocs/op
+BenchmarkBatchSendReceive/batch_string_100-10   1000000  1085 ns/op   100.0 receive+queue/%   93.6 receive/%  8.428 receive_B/op  7.40 receive_MB/s  281 B/op  7 allocs/op
+BenchmarkBatchSendReceive/batch_bytes__100-10   1000000  1084 ns/op   100.0 receive+queue/%   93.4 receive/%  8.411 receive_B/op  7.40 receive_MB/s  304 B/op  8 allocs/op
+BenchmarkBatchSendReceive/batch_string_1000-10  1797055   667 ns/op   100.1 receive+queue/%   96.7 receive/%  8.709 receive_B/op 12.45 receive_MB/s  283 B/op  7 allocs/op
+BenchmarkBatchSendReceive/batch_bytes__1000-10  1787865   678 ns/op   100.0 receive+queue/%  100.0 receive/%  9.001 receive_B/op 12.65 receive_MB/s  307 B/op  8 allocs/op
+BenchmarkBatchSendReceive/batch_string_10000-10 1860106   661 ns/op   100.5 receive+queue/%  100.5 receive/%  9.048 receive_B/op 13.04 receive_MB/s  302 B/op  7 allocs/op
+BenchmarkBatchSendReceive/batch_bytes__10000-10 1787569   685 ns/op   100.1 receive+queue/%  100.1 receive/%  9.012 receive_B/op 12.54 receive_MB/s  325 B/op  8 allocs/op
 PASS
-ok   github.com/nikolaydubina/rchan  18.583s
+ok   github.com/nikolaydubina/rchan  17.187s
 ```
 
 ### localhost

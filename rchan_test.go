@@ -1,6 +1,7 @@
 package rchan_test
 
 import (
+	"context"
 	"fmt"
 	"os"
 	"strconv"
@@ -125,7 +126,10 @@ func bench[T string | []byte](b *testing.B, name string) {
 	close(out)
 	wg.Wait()
 
-	b.ReportMetric(float64(count.Get())/float64(b.N)*100, "received_messages/%")
+	queueLenAfter := rdb.LLen(context.Background(), name).Val()
+
+	b.ReportMetric(float64(count.Get()+int(queueLenAfter))/float64(b.N)*100, "receive+queue/%")
+	b.ReportMetric(float64(count.Get())/float64(b.N)*100, "receive/%")
 	b.ReportMetric(float64(sum.Get())/float64(b.N), "receive_B/op")
 	b.ReportMetric(float64(sum.Get())/b.Elapsed().Seconds()/float64(1<<20), "receive_MB/s")
 }
@@ -145,6 +149,8 @@ func benchBatch[T string | []byte](b *testing.B, name string, batch int) {
 	wg := &sync.WaitGroup{}
 	sum := NewCounter()
 	count := NewCounter()
+
+	rdb.Del(context.Background(), name)
 
 	for i := 0; i < 5; i++ {
 		wg.Add(1)
@@ -173,7 +179,10 @@ func benchBatch[T string | []byte](b *testing.B, name string, batch int) {
 	close(out)
 	wg.Wait()
 
-	b.ReportMetric(float64(count.Get())/float64(b.N)*100, "received_messages/%")
+	queueLenAfter := rdb.LLen(context.Background(), name).Val()
+
+	b.ReportMetric(float64(count.Get()+int(queueLenAfter))/float64(b.N)*100, "receive+queue/%")
+	b.ReportMetric(float64(count.Get())/float64(b.N)*100, "receive/%")
 	b.ReportMetric(float64(sum.Get())/float64(b.N), "receive_B/op")
 	b.ReportMetric(float64(sum.Get())/b.Elapsed().Seconds()/float64(1<<20), "receive_MB/s")
 }

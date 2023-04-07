@@ -60,7 +60,7 @@ func NewRedisListChannel[T string | []byte](rdb *redis.Client, key string, size 
 
 // NewBatchRedisListChannel same as NewRedisListChannel, but sends batches.
 func NewBatchRedisListChannel[T string | []byte](rdb *redis.Client, key string, size uint, buff int, poll time.Duration) (<-chan T, chan<- []T) {
-	r, w, stop := make(chan T, buff), make(chan []T, buff), make(chan bool, 1)
+	r, w, stop := make(chan T, buff), make(chan []T, buff), make(chan bool)
 
 	go func() {
 		t := time.NewTicker(poll)
@@ -81,7 +81,6 @@ func NewBatchRedisListChannel[T string | []byte](rdb *redis.Client, key string, 
 				}
 			case <-stop:
 				close(r)
-				t.Stop()
 				return
 			}
 		}
