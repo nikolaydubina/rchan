@@ -16,11 +16,11 @@ import (
 func Example_simple() {
 	rdb := redis.NewClient(&redis.Options{Addr: "localhost:6379"})
 
-	r, w := rchan.NewRedisListChannel[string](rdb, "my-queue", 10000, 10, time.Millisecond*100)
+	r, w := rchan.NewRedisListChannel[string](rdb, "my-queue", 10000, 10, 1, time.Millisecond*100)
 
 	w <- "hello world 🌏🤍✨"
 
-	// ... 🗺️ ⏳ ...
+	// ...
 
 	fmt.Println(<-r)
 	// Output: hello world 🌏🤍✨
@@ -33,7 +33,7 @@ func TestRedisListChannel_SendAndReceive(t *testing.T) {
 		Addr: os.Getenv("REDIS_HOST") + ":" + os.Getenv("REDIS_PORT"),
 	})
 
-	in, out := rchan.NewRedisListChannel[[]byte](rdb, "my-queue-test", 10000, 10, time.Millisecond*100)
+	in, out := rchan.NewRedisListChannel[string](rdb, "my-queue-test", 10000, 10, 1, time.Millisecond*100)
 
 	counters := map[string]int{
 		"a":                     100,
@@ -57,7 +57,7 @@ func TestRedisListChannel_SendAndReceive(t *testing.T) {
 
 	for k, v := range counters {
 		for i := 0; i < v; i++ {
-			out <- []byte(k)
+			out <- k
 		}
 	}
 
@@ -91,60 +91,13 @@ func (s *Counter) Get() int {
 	return *s.v
 }
 
-func bench[T string | []byte](b *testing.B, name string) {
-	rdb := redis.NewClient(&redis.Options{
-		Addr: os.Getenv("REDIS_HOST") + ":" + os.Getenv("REDIS_PORT"),
-	})
-
-	in, out := rchan.NewRedisListChannel[T](rdb, name, 100000, 10000, time.Millisecond*100)
-
-	wg := &sync.WaitGroup{}
-	sum := NewCounter()
-	count := NewCounter()
-
-	for i := 0; i < 5; i++ {
-		wg.Add(1)
-		go func() {
-			c, cnt := 0, 0
-			defer wg.Done()
-			for q := range in {
-				c += len(q)
-				cnt++
-			}
-			sum.Incr(c)
-			count.Incr(cnt)
-		}()
-	}
-
-	v := T("blueberry")
-
-	b.ResetTimer()
-	for n := 0; n < b.N+10; n++ {
-		out <- v
-	}
-
-	close(out)
-	wg.Wait()
-
-	queueLenAfter := rdb.LLen(context.Background(), name).Val()
-
-	b.ReportMetric(float64(count.Get()+int(queueLenAfter))/float64(b.N)*100, "receive+queue/%")
-	b.ReportMetric(float64(count.Get())/float64(b.N)*100, "receive/%")
-	b.ReportMetric(float64(sum.Get())/float64(b.N), "receive_B/op")
-	b.ReportMetric(float64(sum.Get())/b.Elapsed().Seconds()/float64(1<<20), "receive_MB/s")
-}
-
-func BenchmarkSendReceive_string(b *testing.B) { bench[string](b, "bench-string") }
-
-func BenchmarkSendReceive_bytes(b *testing.B) { bench[[]byte](b, "bench-bytes") }
-
-func benchBatch[T string | []byte](b *testing.B, name string, batch int) {
+func bench[T string | []byte](b *testing.B, name string, buff int, batch int) {
 	rdb := redis.NewClient(&redis.Options{
 		Addr: os.Getenv("REDIS_HOST") + ":" + os.Getenv("REDIS_PORT"),
 	})
 
 	name = name + "-" + strconv.Itoa(batch)
-	in, out := rchan.NewBatchRedisListChannel[T](rdb, name, 1000000, batch, time.Millisecond*100)
+	in, out := rchan.NewRedisListChannel[T](rdb, name, 1000000, buff, batch, time.Millisecond*100)
 
 	wg := &sync.WaitGroup{}
 	sum := NewCounter()
@@ -166,14 +119,9 @@ func benchBatch[T string | []byte](b *testing.B, name string, batch int) {
 		}()
 	}
 
-	var msgs []T
-	for i := 0; i < batch; i++ {
-		msgs = append(msgs, T("blueberry"))
-	}
-
 	b.ResetTimer()
 	for n := 0; n < b.N; n += batch {
-		out <- msgs
+		out <- T("blueberry")
 	}
 
 	close(out)
@@ -188,13 +136,15 @@ func benchBatch[T string | []byte](b *testing.B, name string, batch int) {
 }
 
 func BenchmarkBatchSendReceive(b *testing.B) {
-	for _, n := range []int{10, 100, 1000, 10000} {
-		b.Run(fmt.Sprintf("batch_string_%d", n), func(b *testing.B) {
-			benchBatch[string](b, "batch-string", n)
-		})
+	for _, buff := range []int{10, 100, 1000, 10000} {
+		for _, batch := range []int{10, 100, 1000, 10000} {
+			b.Run(fmt.Sprintf("buff_%d_batch_string_%d", buff, batch), func(b *testing.B) {
+				bench[string](b, "batch-string", buff, batch)
+			})
 
-		b.Run(fmt.Sprintf("batch_bytes__%d", n), func(b *testing.B) {
-			benchBatch[[]byte](b, "batch-bytes", n)
-		})
+			b.Run(fmt.Sprintf("buff_%d_batch_%d", buff, batch), func(b *testing.B) {
+				bench[[]byte](b, "batch-bytes", buff, batch)
+			})
+		}
 	}
 }
