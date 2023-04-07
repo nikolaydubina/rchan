@@ -44,3 +44,61 @@ BenchmarkBatchSendReceive/batch_bytes_10000-10  1598560      663 ns/op     8.839
 PASS
 ok   github.com/nikolaydubina/rchan  16.378s
 ```
+
+### localhost
+
+8.7 GB/s
+
+```bash
+iperf3 -s -p 3000  
+```
+
+```
+-----------------------------------------------------------
+Server listening on 3000 (test #1)
+-----------------------------------------------------------
+Accepted connection from ::1, port 59020
+[  5] local ::1 port 3000 connected to ::1 port 59021
+[ ID] Interval           Transfer     Bitrate
+[  5]   0.00-1.00   sec  7.43 GBytes  63.8 Gbits/sec                  
+[  5]   1.00-2.00   sec  8.39 GBytes  72.0 Gbits/sec                  
+[  5]   2.00-3.00   sec  8.79 GBytes  75.5 Gbits/sec                  
+[  5]   3.00-4.00   sec  8.71 GBytes  74.8 Gbits/sec                  
+[  5]   4.00-5.00   sec  8.75 GBytes  75.2 Gbits/sec                  
+[  5]   5.00-6.00   sec  8.76 GBytes  75.3 Gbits/sec                  
+[  5]   6.00-7.00   sec  8.26 GBytes  70.9 Gbits/sec                  
+[  5]   7.00-8.00   sec  8.62 GBytes  74.0 Gbits/sec                  
+[  5]   8.00-9.00   sec  8.49 GBytes  72.9 Gbits/sec                  
+[  5]   9.00-10.00  sec  8.85 GBytes  76.0 Gbits/sec                  
+[  5]  10.00-10.00  sec  2.06 MBytes  56.7 Gbits/sec                  
+- - - - - - - - - - - - - - - - - - - - - - - - -
+[ ID] Interval           Transfer     Bitrate
+[  5]   0.00-10.00  sec  85.0 GBytes  73.0 Gbits/sec                  receiver
+-----------------------------------------------------------
+```
+
+```bash
+iperf3 -c localhost -p 3000 -f M
+```
+
+```
+Connecting to host localhost, port 3000
+[  7] local ::1 port 59021 connected to ::1 port 3000
+[ ID] Interval           Transfer     Bitrate
+[  7]   0.00-1.00   sec  7.43 GBytes  7608 MBytes/sec                  
+[  7]   1.00-2.00   sec  8.39 GBytes  8588 MBytes/sec                  
+[  7]   2.00-3.00   sec  8.79 GBytes  8998 MBytes/sec                  
+[  7]   3.00-4.00   sec  8.71 GBytes  8916 MBytes/sec                  
+[  7]   4.00-5.00   sec  8.75 GBytes  8961 MBytes/sec                  
+[  7]   5.00-6.00   sec  8.76 GBytes  8972 MBytes/sec                  
+[  7]   6.00-7.00   sec  8.26 GBytes  8456 MBytes/sec                  
+[  7]   7.00-8.00   sec  8.62 GBytes  8823 MBytes/sec                  
+[  7]   8.00-9.00   sec  8.49 GBytes  8691 MBytes/sec                  
+[  7]   9.00-10.00  sec  8.85 GBytes  9064 MBytes/sec                  
+- - - - - - - - - - - - - - - - - - - - - - - - -
+[ ID] Interval           Transfer     Bitrate
+[  7]   0.00-10.00  sec  85.0 GBytes  8708 MBytes/sec                  sender
+[  7]   0.00-10.00  sec  85.0 GBytes  8708 MBytes/sec                  receiver
+
+iperf Done.
+```
