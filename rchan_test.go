@@ -122,7 +122,7 @@ func benchBatch[T string | []byte](b *testing.B, name string, batch int) {
 	})
 
 	name = name + "-" + strconv.Itoa(batch)
-	in, out := rchan.NewBatchRedisListChannel[T](rdb, name, 1000000, 100000, time.Millisecond*100)
+	in, out := rchan.NewBatchRedisListChannel[T](rdb, name, 1000000, batch, time.Millisecond*100)
 
 	sumch := make(chan int, 5)
 	wg := &sync.WaitGroup{}
