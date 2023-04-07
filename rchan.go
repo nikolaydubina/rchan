@@ -36,11 +36,6 @@ func NewRedisListChannel[T string | []byte](rdb *redis.Client, key string, size 
 			case <-stop:
 				close(r)
 				t.Stop()
-				for m := range r {
-					if err := send(context.Background(), rdb, key, size, m); err != nil {
-						log.Printf("send message(%v) error: %s\n", m, err)
-					}
-				}
 				return
 			}
 		}
@@ -53,6 +48,11 @@ func NewRedisListChannel[T string | []byte](rdb *redis.Client, key string, size 
 			}
 		}
 		stop <- true
+		for m := range r {
+			if err := send(context.Background(), rdb, key, size, m); err != nil {
+				log.Printf("send message(%v) error: %s\n", m, err)
+			}
+		}
 	}()
 
 	return r, w
@@ -82,11 +82,6 @@ func NewBatchRedisListChannel[T string | []byte](rdb *redis.Client, key string, 
 			case <-stop:
 				close(r)
 				t.Stop()
-				for m := range r {
-					if err := send(context.Background(), rdb, key, size, m); err != nil {
-						log.Printf("send message(%v) error: %s\n", m, err)
-					}
-				}
 				return
 			}
 		}
@@ -99,6 +94,11 @@ func NewBatchRedisListChannel[T string | []byte](rdb *redis.Client, key string, 
 			}
 		}
 		stop <- true
+		for m := range r {
+			if err := send(context.Background(), rdb, key, size, m); err != nil {
+				log.Printf("send message(%v) error: %s\n", m, err)
+			}
+		}
 	}()
 
 	return r, w

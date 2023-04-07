@@ -69,6 +69,27 @@ func TestRedisListChannel_SendAndReceive(t *testing.T) {
 	}
 }
 
+type Counter struct {
+	C chan int
+	v *int
+}
+
+func NewCounter() *Counter { return &Counter{C: make(chan int, 100)} }
+
+func (s *Counter) Incr(v int) { s.C <- v }
+
+func (s *Counter) Get() int {
+	if s.v == nil {
+		close(s.C)
+		var v int
+		for q := range s.C {
+			v += q
+		}
+		s.v = &v
+	}
+	return *s.v
+}
+
 func bench[T string | []byte](b *testing.B, name string) {
 	rdb := redis.NewClient(&redis.Options{
 		Addr: os.Getenv("REDIS_HOST") + ":" + os.Getenv("REDIS_PORT"),
@@ -76,18 +97,21 @@ func bench[T string | []byte](b *testing.B, name string) {
 
 	in, out := rchan.NewRedisListChannel[T](rdb, name, 100000, 10000, time.Millisecond*100)
 
-	sumch := make(chan int, 5)
 	wg := &sync.WaitGroup{}
+	sum := NewCounter()
+	count := NewCounter()
 
 	for i := 0; i < 5; i++ {
 		wg.Add(1)
 		go func() {
-			c := 0
+			c, cnt := 0, 0
 			defer wg.Done()
 			for q := range in {
 				c += len(q)
+				cnt++
 			}
-			sumch <- c
+			sum.Incr(c)
+			count.Incr(cnt)
 		}()
 	}
 
@@ -99,17 +123,11 @@ func bench[T string | []byte](b *testing.B, name string) {
 	}
 
 	close(out)
-
 	wg.Wait()
 
-	close(sumch)
-	sum := 0
-	for q := range sumch {
-		sum += q
-	}
-
-	b.ReportMetric(float64(sum)/float64(b.N), "receive_B/op")
-	b.ReportMetric(float64(sum)/b.Elapsed().Seconds()/float64(1<<20), "receive_MB/s")
+	b.ReportMetric(float64(count.Get())/float64(b.N)*100, "received_messages/%")
+	b.ReportMetric(float64(sum.Get())/float64(b.N), "receive_B/op")
+	b.ReportMetric(float64(sum.Get())/b.Elapsed().Seconds()/float64(1<<20), "receive_MB/s")
 }
 
 func BenchmarkSendReceive_string(b *testing.B) { bench[string](b, "bench-string") }
@@ -124,18 +142,21 @@ func benchBatch[T string | []byte](b *testing.B, name string, batch int) {
 	name = name + "-" + strconv.Itoa(batch)
 	in, out := rchan.NewBatchRedisListChannel[T](rdb, name, 1000000, batch, time.Millisecond*100)
 
-	sumch := make(chan int, 5)
 	wg := &sync.WaitGroup{}
+	sum := NewCounter()
+	count := NewCounter()
 
 	for i := 0; i < 5; i++ {
 		wg.Add(1)
 		go func() {
 			defer wg.Done()
-			c := 0
+			c, cnt := 0, 0
 			for q := range in {
 				c += len(q)
+				cnt++
 			}
-			sumch <- c
+			sum.Incr(c)
+			count.Incr(cnt)
 		}()
 	}
 
@@ -150,17 +171,11 @@ func benchBatch[T string | []byte](b *testing.B, name string, batch int) {
 	}
 
 	close(out)
-
 	wg.Wait()
 
-	close(sumch)
-	sum := 0
-	for q := range sumch {
-		sum += q
-	}
-
-	b.ReportMetric(float64(sum)/float64(b.N), "receive_B/op")
-	b.ReportMetric(float64(sum)/b.Elapsed().Seconds()/float64(1<<20), "receive_MB/s")
+	b.ReportMetric(float64(count.Get())/float64(b.N)*100, "received_messages/%")
+	b.ReportMetric(float64(sum.Get())/float64(b.N), "receive_B/op")
+	b.ReportMetric(float64(sum.Get())/b.Elapsed().Seconds()/float64(1<<20), "receive_MB/s")
 }
 
 func BenchmarkBatchSendReceive(b *testing.B) {
