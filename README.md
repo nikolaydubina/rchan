@@ -4,8 +4,8 @@
 [![Go Reference](https://pkg.go.dev/badge/github.com/nikolaydubina/rchan.svg)](https://pkg.go.dev/github.com/nikolaydubina/rchan)
 
 * 40 LOC
-* 30 _thousand_ RPS (send individual message)
-* 1.4 _million_ RPS (send batch pipeline)
+* 30 _thousand_ RPS (send/receive individual message)
+* 1.4 _million_ RPS (send/receive batch pipeline)
 * graceful stop (no messages lost, unless error)
 * integration test
 
