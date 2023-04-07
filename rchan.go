@@ -23,7 +23,7 @@ func NewRedisListChannel[T string | []byte](rdb *redis.Client, key string, size 
 		for {
 			select {
 			case <-t.C:
-				for has := true; has; {
+				for has := len(r) < cap(r); has && len(r) < cap(r); {
 					m, err := rdb.LPop(context.Background(), key).Bytes()
 					if has = len(m) > 0 && err == nil; !has {
 						if !errors.Is(err, redis.Nil) {
@@ -67,7 +67,7 @@ func NewBatchRedisListChannel[T string | []byte](rdb *redis.Client, key string, 
 		for {
 			select {
 			case <-t.C:
-				for has := true; has; {
+				for has := len(r) < cap(r); has && len(r) < cap(r); {
 					mb, err := rdb.LPopCount(context.Background(), key, buff).Result()
 					if has = len(mb) > 0 && err == nil; !has {
 						if !errors.Is(err, redis.Nil) {

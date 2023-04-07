@@ -169,7 +169,7 @@ func BenchmarkBatchSendReceive(b *testing.B) {
 			benchBatch[string](b, "batch-string", n)
 		})
 
-		b.Run(fmt.Sprintf("batch_bytes_%d", n), func(b *testing.B) {
+		b.Run(fmt.Sprintf("batch_bytes__%d", n), func(b *testing.B) {
 			benchBatch[[]byte](b, "batch-bytes", n)
 		})
 	}
