@@ -9,13 +9,10 @@ import (
 	"github.com/redis/go-redis/v9"
 )
 
-// NewRedisListChannel passes data between input and output channels through Redis List.
-// Buffers to-sent and to-read messages.
-// Beyond queue size messages are dropped.
-// No retries.
-// To terminate, close the write channel, this will terminate threads and send back to Redis everything buffered, both to-read and to-send.
-func NewRedisListChannel[T string | []byte](rdb *redis.Client, key string, size uint, buff int, poll time.Duration) (<-chan T, chan<- T) {
-	r, w, stop := make(chan T, buff), make(chan T, buff), make(chan bool, 1)
+// NewReader creates long polling reader from Redis List into channel.
+// To terminate call stop function, which will send back to Redis List anything buffered.
+func NewReader[T string | []byte](rdb *redis.Client, key string, size uint, buff int, batch int, poll time.Duration) (read <-chan T, stop func()) {
+	r, back, cstop := make(chan T, buff), make(chan T, buff), make(chan bool)
 
 	go func() {
 		t := time.NewTicker(poll)
@@ -23,50 +20,7 @@ func NewRedisListChannel[T string | []byte](rdb *redis.Client, key string, size 
 			select {
 			case <-t.C:
 				for has := len(r) < cap(r); has && len(r) < cap(r); {
-					m, err := rdb.LPop(context.Background(), key).Bytes()
-					if err != nil && !errors.Is(err, redis.Nil) {
-						log.Printf("receive error: %s\n", err)
-					}
-					if has = len(m) > 0; !has {
-						continue
-					}
-					r <- T(m)
-				}
-			case <-stop:
-				close(r)
-				return
-			}
-		}
-	}()
-
-	go func() {
-		for m := range w {
-			if err := send(context.Background(), rdb, key, size, m); err != nil {
-				log.Printf("send message(%v) error: %s\n", m, err)
-			}
-		}
-		stop <- true
-		for m := range r {
-			if err := send(context.Background(), rdb, key, size, m); err != nil {
-				log.Printf("send message(%v) error: %s\n", m, err)
-			}
-		}
-	}()
-
-	return r, w
-}
-
-// NewBatchRedisListChannel same as NewRedisListChannel, but sends batches.
-func NewBatchRedisListChannel[T string | []byte](rdb *redis.Client, key string, size uint, buff int, poll time.Duration) (<-chan T, chan<- []T) {
-	r, w, stop := make(chan T, buff), make(chan []T, buff), make(chan bool)
-
-	go func() {
-		t := time.NewTicker(poll)
-		for {
-			select {
-			case <-t.C:
-				for has := len(r) < cap(r); has && len(r) < cap(r); {
-					mb, err := rdb.LPopCount(context.Background(), key, buff).Result()
+					mb, err := rdb.LPopCount(context.Background(), key, batch).Result()
 					if err != nil && !errors.Is(err, redis.Nil) {
 						log.Printf("receive messages_count(%d) error: %s\n", len(mb), err)
 					}
@@ -77,36 +31,43 @@ func NewBatchRedisListChannel[T string | []byte](rdb *redis.Client, key string, 
 						r <- T(m)
 					}
 				}
-			case <-stop:
+			case <-cstop:
 				close(r)
 				return
 			}
 		}
 	}()
 
-	go func() {
-		for mb := range w {
-			if err := send(context.Background(), rdb, key, size, mb...); err != nil {
-				log.Printf("send message(%v) error: %s\n", mb, err)
-			}
-		}
-		stop <- true
-		for m := range r {
-			if err := send(context.Background(), rdb, key, size, m); err != nil {
-				log.Printf("send message(%v) error: %s\n", m, err)
-			}
-		}
-	}()
+	go send(context.Background(), rdb, key, size, batch, back)
 
-	return r, w
+	return r, func() { close(cstop) }
 }
 
-func send[T string | []byte](ctx context.Context, rdb *redis.Client, key string, size uint, ms ...T) error {
-	tx := rdb.TxPipeline()
-	for _, m := range ms {
+// NewWriter from chanel into Redis List.
+// To terminate, close write channel.
+func NewWriter[T string | []byte](rdb *redis.Client, key string, size uint, buff int, batch int) chan<- T {
+	w := make(chan T, buff)
+	go send(context.Background(), rdb, key, size, batch, w)
+	return w
+}
+
+func send[T string | []byte](ctx context.Context, rdb *redis.Client, key string, size uint, batch int, w <-chan T) {
+	tx := rdb.Pipeline()
+	n := 0
+	for m := range w {
 		tx.RPush(ctx, key, m)
+		n++
+		if n == batch {
+			tx.LTrim(ctx, key, 0, int64(size))
+			if _, err := tx.Exec(ctx); err != nil {
+				log.Printf("send error: %s\n", err)
+			}
+			tx = rdb.Pipeline()
+			n = 0
+		}
 	}
 	tx.LTrim(ctx, key, 0, int64(size))
-	_, err := tx.Exec(ctx)
-	return err
+	if _, err := tx.Exec(ctx); err != nil {
+		log.Printf("send error: %s\n", err)
+	}
 }

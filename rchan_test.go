@@ -16,12 +16,14 @@ import (
 func Example_simple() {
 	rdb := redis.NewClient(&redis.Options{Addr: "localhost:6379"})
 
-	r, w := rchan.NewRedisListChannel[string](rdb, "my-queue", 10000, 10, time.Millisecond*100)
-
+	// Alice
+	w := rchan.NewWriter[string](rdb, "my-queue", 10000, 10, 1)
 	w <- "hello world 🌏🤍✨"
 
-	// ... 🗺️ ⏳ ...
+	// ... 🌏 ...
 
+	// Bob
+	r, _ := rchan.NewReader[string](rdb, "my-queue", 10000, 10, 1, time.Millisecond*100)
 	fmt.Println(<-r)
 	// Output: hello world 🌏🤍✨
 }
@@ -33,7 +35,12 @@ func TestRedisListChannel_SendAndReceive(t *testing.T) {
 		Addr: os.Getenv("REDIS_HOST") + ":" + os.Getenv("REDIS_PORT"),
 	})
 
-	in, out := rchan.NewRedisListChannel[[]byte](rdb, "my-queue-test", 10000, 10, time.Millisecond*100)
+	name := "my-queue-test"
+
+	rdb.Del(context.Background(), name)
+
+	r, _ := rchan.NewReader[string](rdb, name, 10000, 10, 1, time.Millisecond*100)
+	w := rchan.NewWriter[string](rdb, name, 10000, 10, 1)
 
 	counters := map[string]int{
 		"a":                     100,
@@ -47,7 +54,7 @@ func TestRedisListChannel_SendAndReceive(t *testing.T) {
 
 	for i := 0; i < 5; i++ {
 		go func() {
-			for q := range in {
+			for q := range r {
 				lock.Lock()
 				vs[string(q)]++
 				lock.Unlock()
@@ -57,11 +64,12 @@ func TestRedisListChannel_SendAndReceive(t *testing.T) {
 
 	for k, v := range counters {
 		for i := 0; i < v; i++ {
-			out <- []byte(k)
+			w <- k
 		}
 	}
+	close(w)
 
-	time.Sleep(time.Second)
+	time.Sleep(time.Millisecond * 500)
 
 	for k, v := range counters {
 		if vs[k] != v {
@@ -91,110 +99,76 @@ func (s *Counter) Get() int {
 	return *s.v
 }
 
-func bench[T string | []byte](b *testing.B, name string) {
-	rdb := redis.NewClient(&redis.Options{
-		Addr: os.Getenv("REDIS_HOST") + ":" + os.Getenv("REDIS_PORT"),
-	})
-
-	in, out := rchan.NewRedisListChannel[T](rdb, name, 100000, 10000, time.Millisecond*100)
-
-	wg := &sync.WaitGroup{}
-	sum := NewCounter()
-	count := NewCounter()
-
-	for i := 0; i < 5; i++ {
-		wg.Add(1)
-		go func() {
-			c, cnt := 0, 0
-			defer wg.Done()
-			for q := range in {
-				c += len(q)
-				cnt++
-			}
-			sum.Incr(c)
-			count.Incr(cnt)
-		}()
-	}
-
-	v := T("blueberry")
-
-	b.ResetTimer()
-	for n := 0; n < b.N+10; n++ {
-		out <- v
-	}
-
-	close(out)
-	wg.Wait()
-
-	queueLenAfter := rdb.LLen(context.Background(), name).Val()
-
-	b.ReportMetric(float64(count.Get()+int(queueLenAfter))/float64(b.N)*100, "receive+queue/%")
-	b.ReportMetric(float64(count.Get())/float64(b.N)*100, "receive/%")
-	b.ReportMetric(float64(sum.Get())/float64(b.N), "receive_B/op")
-	b.ReportMetric(float64(sum.Get())/b.Elapsed().Seconds()/float64(1<<20), "receive_MB/s")
-}
-
-func BenchmarkSendReceive_string(b *testing.B) { bench[string](b, "bench-string") }
-
-func BenchmarkSendReceive_bytes(b *testing.B) { bench[[]byte](b, "bench-bytes") }
-
-func benchBatch[T string | []byte](b *testing.B, name string, batch int) {
+func bench[T string | []byte](b *testing.B, name string, buff int, batch int) {
 	rdb := redis.NewClient(&redis.Options{
 		Addr: os.Getenv("REDIS_HOST") + ":" + os.Getenv("REDIS_PORT"),
 	})
 
 	name = name + "-" + strconv.Itoa(batch)
-	in, out := rchan.NewBatchRedisListChannel[T](rdb, name, 1000000, batch, time.Millisecond*100)
 
 	wg := &sync.WaitGroup{}
-	sum := NewCounter()
-	count := NewCounter()
+	numBytes := NewCounter()
+	numMessages := NewCounter()
 
 	rdb.Del(context.Background(), name)
 
-	for i := 0; i < 5; i++ {
+	for i := 0; i < 1; i++ {
 		wg.Add(1)
 		go func() {
 			defer wg.Done()
-			c, cnt := 0, 0
-			for q := range in {
-				c += len(q)
-				cnt++
+
+			r, stop := rchan.NewReader[T](rdb, name, 1000000, buff, batch, time.Millisecond*100)
+			defer stop()
+
+			b, c := 0, 0
+
+			for q := range r {
+				if string(q) == "stop" {
+					numBytes.Incr(b)
+					numMessages.Incr(c)
+					return
+				}
+				b += len(q)
+				c++
 			}
-			sum.Incr(c)
-			count.Incr(cnt)
 		}()
 	}
 
-	var msgs []T
-	for i := 0; i < batch; i++ {
-		msgs = append(msgs, T("blueberry"))
-	}
+	w := rchan.NewWriter[T](rdb, name, 1000000, buff, batch)
 
 	b.ResetTimer()
-	for n := 0; n < b.N; n += batch {
-		out <- msgs
+	for n := 0; n < b.N; n++ {
+		w <- T("blueberry")
 	}
+	for i := 0; i < 1; i++ {
+		w <- T("stop")
+	}
+	close(w)
 
-	close(out)
 	wg.Wait()
 
 	queueLenAfter := rdb.LLen(context.Background(), name).Val()
 
-	b.ReportMetric(float64(count.Get()+int(queueLenAfter))/float64(b.N)*100, "receive+queue/%")
-	b.ReportMetric(float64(count.Get())/float64(b.N)*100, "receive/%")
-	b.ReportMetric(float64(sum.Get())/float64(b.N), "receive_B/op")
-	b.ReportMetric(float64(sum.Get())/b.Elapsed().Seconds()/float64(1<<20), "receive_MB/s")
+	b.ReportMetric(float64(numMessages.Get()+int(queueLenAfter))/float64(b.N)*100, "receive+queue/%")
+	b.ReportMetric(float64(numMessages.Get())/float64(b.N)*100, "receive/%")
+	b.ReportMetric(float64(numBytes.Get())/float64(b.N), "receive_B/op")
+	b.ReportMetric(float64(numBytes.Get())/b.Elapsed().Seconds()/float64(1<<20), "receive_MB/s")
 }
 
 func BenchmarkBatchSendReceive(b *testing.B) {
-	for _, n := range []int{10, 100, 1000, 10000} {
-		b.Run(fmt.Sprintf("batch_string_%d", n), func(b *testing.B) {
-			benchBatch[string](b, "batch-string", n)
-		})
+	for _, buff := range []int{10, 100, 1000, 10000} {
+		for _, batch := range []int{10, 100, 1000, 10000} {
+			if buff < batch {
+				continue
+			}
 
-		b.Run(fmt.Sprintf("batch_bytes__%d", n), func(b *testing.B) {
-			benchBatch[[]byte](b, "batch-bytes", n)
-		})
+			b.Run(fmt.Sprintf("buff-%d-batch-%d-string-", buff, batch), func(b *testing.B) {
+				bench[string](b, "batch-string", buff, batch)
+			})
+
+			b.Run(fmt.Sprintf("buff-%d-batch-%d-bytes--", buff, batch), func(b *testing.B) {
+				bench[[]byte](b, "batch-bytes", buff, batch)
+			})
+		}
 	}
 }

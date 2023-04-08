@@ -3,7 +3,7 @@
 [![Go Report Card](https://goreportcard.com/badge/github.com/nikolaydubina/rchan)](https://goreportcard.com/report/github.com/nikolaydubina/rchan)
 [![Go Reference](https://pkg.go.dev/badge/github.com/nikolaydubina/rchan.svg)](https://pkg.go.dev/github.com/nikolaydubina/rchan)
 
-* 40 LOC
+* 50 LOC
 * 30 _thousand_ RPS (send/receive individual message)
 * 1.4 _million_ RPS (send/receive batch pipeline)
 * graceful stop (no messages lost, unless error)
@@ -12,12 +12,14 @@
 ```go
 rdb := redis.NewClient(&redis.Options{Addr: "localhost:6379"})
 
-r, w := rchan.NewRedisListChannel[string](rdb, "my-queue", 10000, 10, time.Millisecond*100)
-
+// Alice
+w := rchan.NewWriter[string](rdb, "my-queue", 10000, 10, 1, time.Millisecond*100)
 w <- "hello world 🌏🤍✨"
 
-// ...
+// ... 🌏 ...
 
+// Bob
+r, _ := rchan.NewReader[string](rdb, "my-queue", 10000, 10, 1, time.Millisecond*100)
 fmt.Println(<-r)
 // Output: hello world 🌏🤍✨
 ```
@@ -32,18 +34,28 @@ REDIS_HOST=localhost REDIS_PORT=6379 go test -bench=. -benchmem .
 goos: darwin
 goarch: arm64
 pkg: github.com/nikolaydubina/rchan
-BenchmarkSendReceive_string-10 29498 34788 ns/op   100.0 receive/%  9.003 receive_B/op  0.2468 receive_MB/s  1068 B/op   36 allocs/op
-BenchmarkSendReceive_bytes-10  30074 34886 ns/op   100.0 receive/%  9.003 receive_B/op  0.2461 receive_MB/s  1060 B/op   35 allocs/op
-BenchmarkBatchSendReceive/batch_string_10-10     334543  4325 ns/op   100.0 receive+queue/%  100.0 receive/%  9.000 receive_B/op  1.98 receive_MB/s  361 B/op 10 allocs/op
-BenchmarkBatchSendReceive/batch_bytes__10-10     330771  4344 ns/op   100.0 receive+queue/%  100.0 receive/%  9.000 receive_B/op  1.97 receive_MB/s  385 B/op 11 allocs/op
-BenchmarkBatchSendReceive/batch_string_100-10   1000000  1085 ns/op   100.0 receive+queue/%   93.6 receive/%  8.428 receive_B/op  7.40 receive_MB/s  281 B/op  7 allocs/op
-BenchmarkBatchSendReceive/batch_bytes__100-10   1000000  1084 ns/op   100.0 receive+queue/%   93.4 receive/%  8.411 receive_B/op  7.40 receive_MB/s  304 B/op  8 allocs/op
-BenchmarkBatchSendReceive/batch_string_1000-10  1797055   667 ns/op   100.1 receive+queue/%   96.7 receive/%  8.709 receive_B/op 12.45 receive_MB/s  283 B/op  7 allocs/op
-BenchmarkBatchSendReceive/batch_bytes__1000-10  1787865   678 ns/op   100.0 receive+queue/%  100.0 receive/%  9.001 receive_B/op 12.65 receive_MB/s  307 B/op  8 allocs/op
-BenchmarkBatchSendReceive/batch_string_10000-10 1860106   661 ns/op   100.5 receive+queue/%  100.5 receive/%  9.048 receive_B/op 13.04 receive_MB/s  302 B/op  7 allocs/op
-BenchmarkBatchSendReceive/batch_bytes__10000-10 1787569   685 ns/op   100.1 receive+queue/%  100.1 receive/%  9.012 receive_B/op 12.54 receive_MB/s  325 B/op  8 allocs/op
+BenchmarkBatchSendReceive/buff-10-batch-10-string--10          281578  4043 ns/op 100.0 receive+queue/%  100.0 receive/%  9.000 receive_B/op  2.12 receive_MB/s 310 B/op  8 allocs/op
+BenchmarkBatchSendReceive/buff-10-batch-10-bytes---10          279426  4081 ns/op 100.0 receive+queue/%  100.0 receive/%  9.000 receive_B/op  2.10 receive_MB/s 350 B/op 10 allocs/op
+BenchmarkBatchSendReceive/buff-100-batch-10-string--10         282370  4131 ns/op 100.0 receive+queue/%  100.0 receive/%  9.000 receive_B/op  2.07 receive_MB/s 310 B/op  8 allocs/op
+BenchmarkBatchSendReceive/buff-100-batch-10-bytes---10         280876  4049 ns/op 100.0 receive+queue/%  100.0 receive/%  9.000 receive_B/op  2.12 receive_MB/s 350 B/op 10 allocs/op
+BenchmarkBatchSendReceive/buff-100-batch-100-string--10       1024000  1092 ns/op 100.0 receive+queue/%  100.0 receive/%  9.000 receive_B/op  7.85 receive_MB/s 256 B/op  6 allocs/op
+BenchmarkBatchSendReceive/buff-100-batch-100-bytes---10        988862  1129 ns/op 100.0 receive+queue/%  100.0 receive/%  9.000 receive_B/op  7.60 receive_MB/s 296 B/op  8 allocs/op
+BenchmarkBatchSendReceive/buff-1000-batch-10-string--10        281828  4041 ns/op 100.0 receive+queue/%  100.0 receive/%  9.000 receive_B/op  2.12 receive_MB/s 310 B/op  8 allocs/op
+BenchmarkBatchSendReceive/buff-1000-batch-10-bytes---10        280272  4212 ns/op 100.0 receive+queue/%  100.0 receive/%  9.000 receive_B/op  2.03 receive_MB/s 350 B/op 10 allocs/op
+BenchmarkBatchSendReceive/buff-1000-batch-100-string--10      1018701  1095 ns/op 100.0 receive+queue/%  100.0 receive/%  9.000 receive_B/op  7.84 receive_MB/s 256 B/op  6 allocs/op
+BenchmarkBatchSendReceive/buff-1000-batch-100-bytes---10      1008822  1109 ns/op 100.0 receive+queue/%  100.0 receive/%  9.000 receive_B/op  7.74 receive_MB/s 296 B/op  8 allocs/op
+BenchmarkBatchSendReceive/buff-1000-batch-1000-string--10     1566339   713 ns/op 100.0 receive+queue/%  100.0 receive/%  9.000 receive_B/op 12.02 receive_MB/s 259 B/op  6 allocs/op
+BenchmarkBatchSendReceive/buff-1000-batch-1000-bytes---10     1428948   708 ns/op 100.0 receive+queue/%  100.0 receive/%  9.000 receive_B/op 12.12 receive_MB/s 299 B/op  8 allocs/op
+BenchmarkBatchSendReceive/buff-10000-batch-10-string--10       271543  4116 ns/op 100.0 receive+queue/%  100.0 receive/%  9.000 receive_B/op  2.08 receive_MB/s 311 B/op  8 allocs/op
+BenchmarkBatchSendReceive/buff-10000-batch-10-bytes---10       274959  4100 ns/op 100.0 receive+queue/%  100.0 receive/%  9.000 receive_B/op  2.09 receive_MB/s 352 B/op 10 allocs/op
+BenchmarkBatchSendReceive/buff-10000-batch-100-string--10     1026082  1087 ns/op 100.0 receive+queue/%  100.0 receive/%  9.000 receive_B/op  7.89 receive_MB/s 256 B/op  6 allocs/op
+BenchmarkBatchSendReceive/buff-10000-batch-100-bytes---10     1002680  1115 ns/op 100.0 receive+queue/%  100.0 receive/%  9.000 receive_B/op  7.69 receive_MB/s 296 B/op  8 allocs/op
+BenchmarkBatchSendReceive/buff-10000-batch-1000-string--10    1438033   704 ns/op 100.0 receive+queue/%  100.0 receive/%  9.000 receive_B/op 12.18 receive_MB/s 259 B/op  6 allocs/op
+BenchmarkBatchSendReceive/buff-10000-batch-1000-bytes---10    1436354   701 ns/op 100.0 receive+queue/%  100.0 receive/%  9.000 receive_B/op 12.23 receive_MB/s 299 B/op  8 allocs/op
+BenchmarkBatchSendReceive/buff-10000-batch-10000-string--10   1480132   687 ns/op 100.0 receive+queue/%  100.0 receive/%  9.000 receive_B/op 12.49 receive_MB/s 277 B/op  6 allocs/op
+BenchmarkBatchSendReceive/buff-10000-batch-10000-bytes---10   1585638   646 ns/op 100.0 receive+queue/%  100.0 receive/%  9.000 receive_B/op 13.29 receive_MB/s 317 B/op  8 allocs/op
 PASS
-ok   github.com/nikolaydubina/rchan  17.187s
+ok   github.com/nikolaydubina/rchan  40.939s
 ```
 
 ### localhost
@@ -103,3 +115,17 @@ Connecting to host localhost, port 3000
 
 iperf Done.
 ```
+
+## Appendix A: Paths Not Taken
+
+### Single function that returns writer and reader channels
+Some call-sites do not use reader at all.
+Usually it is either only reader or writer, if you have both, you can use normal channel.
+Returning both reader and writer causes to read from Redis List into anonymous reader channel that is not used.
+It keeps data there up to buffer size and it is not processed by anyone.
+So to keep logic simple, instantiate what you need — either reader or writer.
+This also helps to avoid duplication of parameters of buffering for reader vs writer.
+
+### Single channel return for reader
+We need to tell reader goroutine that no more reads will ever be performed and send anything in channel back to Redis List.
+For example, for graceful termination.
