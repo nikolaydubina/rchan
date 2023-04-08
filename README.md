@@ -3,6 +3,8 @@
 [![Go Report Card](https://goreportcard.com/badge/github.com/nikolaydubina/rchan)](https://goreportcard.com/report/github.com/nikolaydubina/rchan)
 [![Go Reference](https://pkg.go.dev/badge/github.com/nikolaydubina/rchan.svg)](https://pkg.go.dev/github.com/nikolaydubina/rchan)
 
+> Disclaimer: this is experiment to see channel based API for distributed queues. Channel technically is a function call that does not error out. So effectively sending to distributed queue through channel is _delaying_ / _buffering_ calls to distributied message broker. It is possible that this can lead to better performanc and higher throughput. However, this project is more of experiment of API design and trying out definig APIs in terms of channels. Very likely you may want to use function based API in production.
+
 * 50 LOC
 * 30 _thousand_ RPS (send/receive individual message)
 * 1.4 _million_ RPS (send/receive batch pipeline)
