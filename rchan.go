@@ -9,13 +9,10 @@ import (
 	"github.com/redis/go-redis/v9"
 )
 
-// NewRedisListChannel passes data between input and output channels through Redis List.
-// Buffers to-sent and to-read messages.
-// Beyond queue size messages are dropped.
-// No retries.
-// To terminate, close the write channel, this will terminate threads and send back to Redis everything buffered, both to-read and to-send.
-func NewRedisListChannel[T string | []byte](rdb *redis.Client, key string, size uint, buff int, batch int, poll time.Duration) (<-chan T, chan<- T) {
-	r, w, stop := make(chan T, buff), make(chan T, buff), make(chan bool)
+// NewReader creates long polling reader from Redis List into channel.
+// To terminate call stop function, which will send back to Redis List anything buffered.
+func NewReader[T string | []byte](rdb *redis.Client, key string, size uint, buff int, batch int, poll time.Duration) (read <-chan T, stop func()) {
+	r, back, cstop := make(chan T, buff), make(chan T, buff), make(chan bool)
 
 	go func() {
 		t := time.NewTicker(poll)
@@ -34,26 +31,32 @@ func NewRedisListChannel[T string | []byte](rdb *redis.Client, key string, size 
 						r <- T(m)
 					}
 				}
-			case <-stop:
+			case <-cstop:
 				close(r)
 				return
 			}
 		}
 	}()
 
-	go func() {
-		send(context.Background(), rdb, key, size, batch, w)
-		stop <- true
-		send(context.Background(), rdb, key, size, batch, r)
-	}()
+	go send(context.Background(), rdb, key, size, batch, back)
 
-	return r, w
+	return r, func() { close(cstop) }
+}
+
+// NewWriter from chanel into Redis List.
+// To terminate, close write channel.
+func NewWriter[T string | []byte](rdb *redis.Client, key string, size uint, buff int, batch int) chan<- T {
+	w := make(chan T, buff)
+	go send(context.Background(), rdb, key, size, batch, w)
+	return w
 }
 
 func send[T string | []byte](ctx context.Context, rdb *redis.Client, key string, size uint, batch int, w <-chan T) {
 	tx := rdb.Pipeline()
 	n := 0
 	for m := range w {
+		tx.RPush(ctx, key, m)
+		n++
 		if n == batch {
 			tx.LTrim(ctx, key, 0, int64(size))
 			if _, err := tx.Exec(ctx); err != nil {
@@ -62,8 +65,6 @@ func send[T string | []byte](ctx context.Context, rdb *redis.Client, key string,
 			tx = rdb.Pipeline()
 			n = 0
 		}
-		tx.RPush(ctx, key, m)
-		n++
 	}
 	tx.LTrim(ctx, key, 0, int64(size))
 	if _, err := tx.Exec(ctx); err != nil {
