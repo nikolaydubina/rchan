@@ -33,6 +33,10 @@ func NewReader[T string | []byte](rdb *redis.Client, key string, size uint, buff
 				}
 			case <-cstop:
 				close(r)
+				for m := range r {
+					back <- m
+				}
+				close(back)
 				return
 			}
 		}
