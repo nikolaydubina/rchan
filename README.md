@@ -1,4 +1,4 @@
-## 🌸 rchan: Go channel through Redis List
+## rchan: Go channel through Redis List
 
 [![Go Report Card](https://goreportcard.com/badge/github.com/nikolaydubina/rchan)](https://goreportcard.com/report/github.com/nikolaydubina/rchan)
 [![Go Reference](https://pkg.go.dev/badge/github.com/nikolaydubina/rchan.svg)](https://pkg.go.dev/github.com/nikolaydubina/rchan)
