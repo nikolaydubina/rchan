@@ -15,7 +15,7 @@
 rdb := redis.NewClient(&redis.Options{Addr: "localhost:6379"})
 
 // Alice
-w := rchan.NewWriter[string](rdb, "my-queue", 10000, 10, 1)
+w := rchan.NewWriter[string](rdb, "my-queue", 10000, 10, 1, time.Millisecond*100)
 w <- "hello world 🌏🤍✨"
 
 // ... 🌏 ...
