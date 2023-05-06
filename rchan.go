@@ -10,6 +10,7 @@ import (
 )
 
 // NewReader creates long polling reader from Redis List into channel.
+// Every pooling interval tries to populate buffer.
 // To terminate call stop function, which will send back to Redis List anything buffered.
 func NewReader[T string | []byte](rdb *redis.Client, key string, size uint, buff int, batch int, poll time.Duration) (read <-chan T, stop func()) {
 	r, back, cstop := make(chan T, buff), make(chan T, buff), make(chan bool)
@@ -42,34 +43,45 @@ func NewReader[T string | []byte](rdb *redis.Client, key string, size uint, buff
 		}
 	}()
 
-	go send(context.Background(), rdb, key, size, batch, back)
+	go send(context.Background(), rdb, key, size, batch, poll, back)
 
 	return r, func() { close(cstop) }
 }
 
 // NewWriter from chanel into Redis List.
+// Flushes pending items on interval or when batch size is reached.
 // To terminate, close write channel.
-func NewWriter[T string | []byte](rdb *redis.Client, key string, size uint, buff int, batch int) chan<- T {
+func NewWriter[T string | []byte](rdb *redis.Client, key string, size uint, buff int, batch int, flushInterval time.Duration) chan<- T {
 	w := make(chan T, buff)
-	go send(context.Background(), rdb, key, size, batch, w)
+	go send(context.Background(), rdb, key, size, batch, flushInterval, w)
 	return w
 }
 
-func send[T string | []byte](ctx context.Context, rdb *redis.Client, key string, size uint, batch int, w <-chan T) {
-	tx := rdb.Pipeline()
-	n := 0
-	for m := range w {
-		tx.RPush(ctx, key, m)
-		n++
-		if n == batch {
-			tx.LTrim(ctx, key, 0, int64(size))
-			if _, err := tx.Exec(ctx); err != nil {
-				log.Printf("send error: %s\n", err)
+func send[T string | []byte](ctx context.Context, rdb *redis.Client, key string, size uint, batch int, flushInterval time.Duration, w <-chan T) {
+	n, tx, t := 0, rdb.Pipeline(), time.NewTicker(flushInterval)
+	for {
+		select {
+		case <-t.C:
+			if n > 0 {
+				flushSend(ctx, tx, size, key)
+				n, tx = 0, rdb.Pipeline()
 			}
-			tx = rdb.Pipeline()
-			n = 0
+		case m, ok := <-w:
+			if !ok {
+				flushSend(ctx, tx, size, key)
+				return
+			}
+			tx.RPush(ctx, key, m)
+			n++
+			if n == batch {
+				flushSend(ctx, tx, size, key)
+				n, tx = 0, rdb.Pipeline()
+			}
 		}
 	}
+}
+
+func flushSend(ctx context.Context, tx redis.Pipeliner, size uint, key string) {
 	tx.LTrim(ctx, key, 0, int64(size))
 	if _, err := tx.Exec(ctx); err != nil {
 		log.Printf("send error: %s\n", err)

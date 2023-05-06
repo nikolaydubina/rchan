@@ -5,7 +5,7 @@
 
 > Disclaimer: this is experiment to see channel based API for distributed queues. Channel technically is a function call that does not error out. So effectively sending to or reading from distributed queue through channel is _delaying_ or _buffering_ calls to distributied message broker. It is possible that this can lead to better performance and higher throughput. However, this project is more of an experiment of API design with goal to make workable solution with minimal code. Very likely you may want to use function based API in production.
 
-* 50 LOC
+* 100 LOC
 * 30 _thousand_ RPS (send/receive individual message)
 * 1.4 _million_ RPS (send/receive batch pipeline)
 * graceful stop (no messages lost, unless error)
@@ -36,26 +36,26 @@ REDIS_HOST=localhost REDIS_PORT=6379 go test -bench=. -benchmem .
 goos: darwin
 goarch: arm64
 pkg: github.com/nikolaydubina/rchan
-BenchmarkBatchSendReceive/buff-10-batch-10-string--10          281578  4043 ns/op 100.0 receive+queue/%  100.0 receive/%  9.000 receive_B/op  2.12 receive_MB/s 310 B/op  8 allocs/op
-BenchmarkBatchSendReceive/buff-10-batch-10-bytes---10          279426  4081 ns/op 100.0 receive+queue/%  100.0 receive/%  9.000 receive_B/op  2.10 receive_MB/s 350 B/op 10 allocs/op
-BenchmarkBatchSendReceive/buff-100-batch-10-string--10         282370  4131 ns/op 100.0 receive+queue/%  100.0 receive/%  9.000 receive_B/op  2.07 receive_MB/s 310 B/op  8 allocs/op
-BenchmarkBatchSendReceive/buff-100-batch-10-bytes---10         280876  4049 ns/op 100.0 receive+queue/%  100.0 receive/%  9.000 receive_B/op  2.12 receive_MB/s 350 B/op 10 allocs/op
-BenchmarkBatchSendReceive/buff-100-batch-100-string--10       1024000  1092 ns/op 100.0 receive+queue/%  100.0 receive/%  9.000 receive_B/op  7.85 receive_MB/s 256 B/op  6 allocs/op
-BenchmarkBatchSendReceive/buff-100-batch-100-bytes---10        988862  1129 ns/op 100.0 receive+queue/%  100.0 receive/%  9.000 receive_B/op  7.60 receive_MB/s 296 B/op  8 allocs/op
-BenchmarkBatchSendReceive/buff-1000-batch-10-string--10        281828  4041 ns/op 100.0 receive+queue/%  100.0 receive/%  9.000 receive_B/op  2.12 receive_MB/s 310 B/op  8 allocs/op
-BenchmarkBatchSendReceive/buff-1000-batch-10-bytes---10        280272  4212 ns/op 100.0 receive+queue/%  100.0 receive/%  9.000 receive_B/op  2.03 receive_MB/s 350 B/op 10 allocs/op
-BenchmarkBatchSendReceive/buff-1000-batch-100-string--10      1018701  1095 ns/op 100.0 receive+queue/%  100.0 receive/%  9.000 receive_B/op  7.84 receive_MB/s 256 B/op  6 allocs/op
-BenchmarkBatchSendReceive/buff-1000-batch-100-bytes---10      1008822  1109 ns/op 100.0 receive+queue/%  100.0 receive/%  9.000 receive_B/op  7.74 receive_MB/s 296 B/op  8 allocs/op
-BenchmarkBatchSendReceive/buff-1000-batch-1000-string--10     1566339   713 ns/op 100.0 receive+queue/%  100.0 receive/%  9.000 receive_B/op 12.02 receive_MB/s 259 B/op  6 allocs/op
-BenchmarkBatchSendReceive/buff-1000-batch-1000-bytes---10     1428948   708 ns/op 100.0 receive+queue/%  100.0 receive/%  9.000 receive_B/op 12.12 receive_MB/s 299 B/op  8 allocs/op
-BenchmarkBatchSendReceive/buff-10000-batch-10-string--10       271543  4116 ns/op 100.0 receive+queue/%  100.0 receive/%  9.000 receive_B/op  2.08 receive_MB/s 311 B/op  8 allocs/op
-BenchmarkBatchSendReceive/buff-10000-batch-10-bytes---10       274959  4100 ns/op 100.0 receive+queue/%  100.0 receive/%  9.000 receive_B/op  2.09 receive_MB/s 352 B/op 10 allocs/op
-BenchmarkBatchSendReceive/buff-10000-batch-100-string--10     1026082  1087 ns/op 100.0 receive+queue/%  100.0 receive/%  9.000 receive_B/op  7.89 receive_MB/s 256 B/op  6 allocs/op
-BenchmarkBatchSendReceive/buff-10000-batch-100-bytes---10     1002680  1115 ns/op 100.0 receive+queue/%  100.0 receive/%  9.000 receive_B/op  7.69 receive_MB/s 296 B/op  8 allocs/op
-BenchmarkBatchSendReceive/buff-10000-batch-1000-string--10    1438033   704 ns/op 100.0 receive+queue/%  100.0 receive/%  9.000 receive_B/op 12.18 receive_MB/s 259 B/op  6 allocs/op
-BenchmarkBatchSendReceive/buff-10000-batch-1000-bytes---10    1436354   701 ns/op 100.0 receive+queue/%  100.0 receive/%  9.000 receive_B/op 12.23 receive_MB/s 299 B/op  8 allocs/op
-BenchmarkBatchSendReceive/buff-10000-batch-10000-string--10   1480132   687 ns/op 100.0 receive+queue/%  100.0 receive/%  9.000 receive_B/op 12.49 receive_MB/s 277 B/op  6 allocs/op
-BenchmarkBatchSendReceive/buff-10000-batch-10000-bytes---10   1585638   646 ns/op 100.0 receive+queue/%  100.0 receive/%  9.000 receive_B/op 13.29 receive_MB/s 317 B/op  8 allocs/op
+BenchmarkBatchSendReceive/buff-10-batch-10-string--10          287922     4221 ns/op      100.0 receive+queue/%     100.0 receive/%     9.000 receive_B/op     2.033 receive_MB/s    310 B/op    8 allocs/op   
+BenchmarkBatchSendReceive/buff-10-batch-10-bytes---10          249921     4009 ns/op      100.0 receive+queue/%     100.0 receive/%     9.000 receive_B/op     2.141 receive_MB/s    350 B/op   10 allocs/op   
+BenchmarkBatchSendReceive/buff-100-batch-10-string--10         280068     4131 ns/op      100.0 receive+queue/%     100.0 receive/%     9.000 receive_B/op     2.078 receive_MB/s    310 B/op    8 allocs/op   
+BenchmarkBatchSendReceive/buff-100-batch-10-bytes---10         282595     4182 ns/op      100.0 receive+queue/%     100.0 receive/%     9.000 receive_B/op     2.052 receive_MB/s    350 B/op   10 allocs/op   
+BenchmarkBatchSendReceive/buff-100-batch-100-string--10       1021838     1108 ns/op      100.0 receive+queue/%     100.0 receive/%     9.000 receive_B/op     7.745 receive_MB/s    256 B/op    6 allocs/op   
+BenchmarkBatchSendReceive/buff-100-batch-100-bytes---10        939798     1172 ns/op      100.0 receive+queue/%     100.0 receive/%     9.000 receive_B/op     7.320 receive_MB/s    296 B/op    8 allocs/op   
+BenchmarkBatchSendReceive/buff-1000-batch-10-string--10        286066     4069 ns/op      100.0 receive+queue/%     100.0 receive/%     9.000 receive_B/op     2.109 receive_MB/s    310 B/op    8 allocs/op   
+BenchmarkBatchSendReceive/buff-1000-batch-10-bytes---10        284227     4230 ns/op      100.0 receive+queue/%     100.0 receive/%     9.000 receive_B/op     2.029 receive_MB/s    350 B/op   10 allocs/op   
+BenchmarkBatchSendReceive/buff-1000-batch-100-string--10       894435     1172 ns/op      100.0 receive+queue/%     100.0 receive/%     9.000 receive_B/op     7.326 receive_MB/s    256 B/op    6 allocs/op   
+BenchmarkBatchSendReceive/buff-1000-batch-100-bytes---10       964352     1156 ns/op      100.0 receive+queue/%     100.0 receive/%     9.000 receive_B/op     7.423 receive_MB/s    296 B/op    8 allocs/op   
+BenchmarkBatchSendReceive/buff-1000-batch-1000-string--10     1444040      767.7 ns/op    100.0 receive+queue/%     100.0 receive/%     9.000 receive_B/op    11.18 receive_MB/s     259 B/op    6 allocs/op   
+BenchmarkBatchSendReceive/buff-1000-batch-1000-bytes---10     1451476      762.2 ns/op    100.0 receive+queue/%     100.0 receive/%     9.000 receive_B/op    11.26 receive_MB/s     299 B/op    8 allocs/op   
+BenchmarkBatchSendReceive/buff-10000-batch-10-string--10       267046     4113 ns/op      100.0 receive+queue/%     100.0 receive/%     9.000 receive_B/op     2.087 receive_MB/s    310 B/op    8 allocs/op   
+BenchmarkBatchSendReceive/buff-10000-batch-10-bytes---10       281936     4043 ns/op      100.0 receive+queue/%     100.0 receive/%     9.000 receive_B/op     2.123 receive_MB/s    352 B/op   10 allocs/op   
+BenchmarkBatchSendReceive/buff-10000-batch-100-string--10     1039837     1095 ns/op      100.0 receive+queue/%     100.0 receive/%     9.000 receive_B/op     7.835 receive_MB/s    256 B/op    6 allocs/op   
+BenchmarkBatchSendReceive/buff-10000-batch-100-bytes---10      974930     1144 ns/op      100.0 receive+queue/%     100.0 receive/%     9.000 receive_B/op     7.503 receive_MB/s    296 B/op    8 allocs/op   
+BenchmarkBatchSendReceive/buff-10000-batch-1000-string--10    1462742      767.1 ns/op    100.0 receive+queue/%     100.0 receive/%     9.000 receive_B/op    11.19 receive_MB/s     259 B/op    6 allocs/op   
+BenchmarkBatchSendReceive/buff-10000-batch-1000-bytes---10    1363063      811.4 ns/op    100.0 receive+queue/%     100.0 receive/%     9.000 receive_B/op    10.58 receive_MB/s     299 B/op    8 allocs/op   
+BenchmarkBatchSendReceive/buff-10000-batch-10000-string--10   1622870      752.2 ns/op    100.0 receive+queue/%     100.0 receive/%     9.000 receive_B/op    11.41 receive_MB/s     277 B/op    6 allocs/op   
+BenchmarkBatchSendReceive/buff-10000-batch-10000-bytes---10   1630532      743.0 ns/op    100.0 receive+queue/%     100.0 receive/%     9.000 receive_B/op    11.55 receive_MB/s     317 B/op    8 allocs/op 
 PASS
 ok   github.com/nikolaydubina/rchan  40.939s
 ```

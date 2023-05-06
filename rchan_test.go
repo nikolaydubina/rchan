@@ -17,7 +17,7 @@ func Example_simple() {
 	rdb := redis.NewClient(&redis.Options{Addr: "localhost:6379"})
 
 	// Alice
-	w := rchan.NewWriter[string](rdb, "my-queue", 10000, 10, 1)
+	w := rchan.NewWriter[string](rdb, "my-queue", 10000, 10, 1, time.Millisecond*100)
 	w <- "hello world 🌏🤍✨"
 
 	// ... 🌏 ...
@@ -40,7 +40,7 @@ func TestRedisListChannel_SendAndReceive(t *testing.T) {
 	rdb.Del(context.Background(), name)
 
 	r, _ := rchan.NewReader[string](rdb, name, 10000, 10, 1, time.Millisecond*100)
-	w := rchan.NewWriter[string](rdb, name, 10000, 10, 1)
+	w := rchan.NewWriter[string](rdb, name, 10000, 10, 1, time.Millisecond*100)
 
 	counters := map[string]int{
 		"a":                     100,
@@ -70,6 +70,53 @@ func TestRedisListChannel_SendAndReceive(t *testing.T) {
 	close(w)
 
 	time.Sleep(time.Millisecond * 500)
+
+	for k, v := range counters {
+		if vs[k] != v {
+			t.Errorf("key(%s) exp(%d) != got(%d)", k, v, vs[k])
+		}
+	}
+}
+
+func TestRedisListChannel_SlowWrites(t *testing.T) {
+	rdb := redis.NewClient(&redis.Options{
+		Addr: os.Getenv("REDIS_HOST") + ":" + os.Getenv("REDIS_PORT"),
+	})
+
+	name := "my-queue-test-slow"
+
+	rdb.Del(context.Background(), name)
+
+	r, _ := rchan.NewReader[string](rdb, name, 10000, 10, 1, time.Millisecond*100)
+	w := rchan.NewWriter[string](rdb, name, 10000, 10, 5, time.Millisecond*100)
+
+	counters := map[string]int{
+		"a":                     100,
+		"b":                     5,
+		"c":                     17,
+		"some-very-long-string": 1111,
+	}
+
+	vs := map[string]int{}
+	lock := sync.RWMutex{}
+
+	for i := 0; i < 5; i++ {
+		go func() {
+			for q := range r {
+				lock.Lock()
+				vs[string(q)]++
+				lock.Unlock()
+			}
+		}()
+	}
+
+	for k, v := range counters {
+		for i := 0; i < v; i++ {
+			w <- k
+		}
+	}
+
+	time.Sleep(time.Second)
 
 	for k, v := range counters {
 		if vs[k] != v {
@@ -134,7 +181,7 @@ func bench[T string | []byte](b *testing.B, name string, buff int, batch int) {
 		}()
 	}
 
-	w := rchan.NewWriter[T](rdb, name, 1000000, buff, batch)
+	w := rchan.NewWriter[T](rdb, name, 1000000, buff, batch, time.Millisecond*100)
 
 	b.ResetTimer()
 	for n := 0; n < b.N; n++ {
