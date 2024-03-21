@@ -2,6 +2,7 @@
 
 [![Go Report Card](https://goreportcard.com/badge/github.com/nikolaydubina/rchan)](https://goreportcard.com/report/github.com/nikolaydubina/rchan)
 [![Go Reference](https://pkg.go.dev/badge/github.com/nikolaydubina/rchan.svg)](https://pkg.go.dev/github.com/nikolaydubina/rchan)
+[![OpenSSF Scorecard](https://api.securityscorecards.dev/projects/github.com/nikolaydubina/rchan/badge)](https://securityscorecards.dev/viewer/?uri=github.com/nikolaydubina/rchan)
 
 > Disclaimer: this is experiment to see channel based API for distributed queues. Channel technically is a function call that does not error out. So effectively sending to or reading from distributed queue through channel is _delaying_ or _buffering_ calls to distributied message broker. It is possible that this can lead to better performance and higher throughput. However, this project is more of an experiment of API design with goal to make workable solution with minimal code. Very likely you may want to use function based API in production.
 
