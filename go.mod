@@ -2,7 +2,7 @@ module github.com/nikolaydubina/rchan
 
 go 1.20
 
-require github.com/redis/go-redis/v9 v9.5.3
+require github.com/redis/go-redis/v9 v9.5.4
 
 require (
 	github.com/cespare/xxhash/v2 v2.2.0 // indirect
